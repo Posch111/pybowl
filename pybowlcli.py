@@ -1,10 +1,10 @@
 # Command line interface for the bowling game.
 import click
-from pybowl import BowlingGame, Player
+from pybowl import BowlingGame, Bowler
 
-def start_bowling(players):
+def start_bowling(bowlers):
     # game = BowlingGame(players)
-    game = BowlingGame(players, autoplay=True)
+    game = BowlingGame(bowlers, autoplay=True)
     game.start()
 
 @click.command('Bowling Game')
@@ -26,13 +26,13 @@ def get_players(names, autoplay):
 
     print('Players entered: ', ', '.join(names))
 
-    players = []
+    bowlers = []
     id = 0
     for name in names:
-        players.append(Player(name, id))
+        bowlers.append(Bowler(name, id))
         id += 1
 
-    start_bowling(players)
+    start_bowling(bowlers)
 
 if __name__ == '__main__':
     get_players()
