@@ -30,21 +30,20 @@ class Bowler:
         if frame.index != LAST_FRAME_INDEX:
             print(f"{self.name}, bowl frame {frame.index + 1}.")
         else:
-            print(f"{self.name}, this bowl your final frame {frame.index + 1}.")
+            print(f"{self.name}, bowl frame {LAST_FRAME_INDEX + 1}, your final frame.")
         
-        frame.shot1 = self.roll_ball(pins_remaining=PINS_PER_LANE, autoplay=autoplay)
+        frame.shot1 = self.roll_ball(pins_remaining=frame.pins_remaining, autoplay=autoplay)
+
+        if frame.shot1_strike:
+            if frame.index == LAST_FRAME_INDEX:
+                print(f"Strike! You get two more rolls.")
+            else:
+                print(f"You bowled a strike! Frame over.")
+        else:
+            print(f"You hit {frame.shot1} pin(s). {str(frame.pins_remaining)} pins standing, roll again.")
 
         if not frame.done:
-            if frame.shot1_strike:
-                if frame.index == LAST_FRAME_INDEX:
-                    print(f"Strike! You get two more rolls.")
-                else:
-                    print(f"You bowled a strike! Frame over.")
-            else:
-                print(f"You hit {frame.shot1} pin(s). {str(frame.pins_remaining)} pins standing, roll again.")
-            frame.shot2 = self.roll_ball(pins_remaining=(PINS_PER_LANE - frame.shot1), autoplay=autoplay)
-        
-        if not frame.done:
+            frame.shot2 = self.roll_ball(pins_remaining=frame.pins_remaining, autoplay=autoplay)
             if frame.shot2_strike:
                 print(f"Another strike! Bowl your final roll.")
             elif frame.spare:
@@ -53,13 +52,15 @@ class Bowler:
                 else:
                     print(f"You bowled a Spare! Frame over.")
             elif frame.index == LAST_FRAME_INDEX:
-                print(f"You hit {frame.shot2} pin(s). You have finished your round.")
+                if frame.done:
+                    print(f"You hit {frame.shot2} pin(s). You have finished your round.")
+                else:
+                    print(f"You hit {frame.shot2} pin(s). Roll again.")
             else:
                 print(f"You hit {frame.shot2} pin(s). Frame over.")
 
         if not frame.done:
-            print(f"You hit {frame.shot2} pin(s). Roll again.")
-            frame.shot3 = self.roll_ball(pins_remaining=(PINS_PER_LANE - frame.shot1), autoplay=autoplay)
+            frame.shot3 = self.roll_ball(pins_remaining=frame.pins_remaining, autoplay=autoplay)
             if frame.shot3_strike:
                 print(f"You hit a strike for your final roll! You have finished your round.")
             else:
@@ -67,7 +68,7 @@ class Bowler:
 
     def roll_ball(self, pins_remaining, autoplay=False):
         if autoplay:
-            pins_knocked = random.randint(0, pins_remaining)
+           return random.randint(0, pins_remaining)
         else:
             roll_complete = False
             while not roll_complete:
@@ -101,21 +102,20 @@ class FrameSet:
     
     @property
     def score(self):
-        total_score = sum([f.score for f in self.frames])
+        return sum([f.score for f in self.frames])
+    
+    def reset(self):
+        self.frames = [self.Frame(i) for i in range(LAST_FRAME_INDEX+1)]
+        
+        for frame in self.frames[:-1]:
+            frame.next_frame = self.frames[frame.index+1]
     
     def __str__(self):
-        s =  '|Frames:                        '
-        s =  '|_____________________________\n'
-        for i in range(len(self.frames)):
-            s += '|'
-            s += f' {i}  '
-            s += '|'
-        for f in self.frames:
-            s += '|'
-            s += f' {f.score} '
-            s += '|'
-        s += '______________________________\n'
-        s += 'total: ' + str(self.score)
+        row_format ="|{:>4}" * (len(self.frames) + 1)
+        s = row_format.format("Frame:", *[f.index for f in self.frames])
+        s += '\n'
+        s += row_format.format("Score:", *[f.score for f in self.frames])
+        s += f"\nTotal Score = {self.score}"
         return s
 
     class Frame:
@@ -126,9 +126,9 @@ class FrameSet:
             self._scoring_complete = False
             self._done = False
             self._score = 0
-            self._shot1 = None
-            self._shot2 = None
-            self._shot3 = None
+            self._shot1 = 0
+            self._shot2 = 0
+            self._shot3 = 0
             # total pins hit during the frame
             self._pin_total = 0
             # each shot has a strike indicator to distinguish 
@@ -138,7 +138,7 @@ class FrameSet:
             self.shot3_strike = False
             self.spare = False
             # the number of pins remaining, which can be reset up to two times on the final frame.
-            self._pins_remaining
+            self._pins_remaining = PINS_PER_LANE
         
         # Indicates True if all rolls have been done for the frame.
         @property
@@ -167,27 +167,27 @@ class FrameSet:
             if self._scoring_complete:
                 return self._score
             elif self._done:
-                _scoring_complete = True
-            
+                # since this frame is done, the following score calculation is final
+                self._scoring_complete = True
+
             frame_score = 0
+
+            # score calculation for last frame. Shot3 is zero unless it was taken
             if self.index == LAST_FRAME_INDEX:
-                return self.pin_total
-            elif self.shot1_strike:
-                frame_score += PINS_PER_LANE
-                if self.next_frame.strike:
-                    
-                elif self.next_frame.strike:
-                    frame_score += self.next_frame.score
-                    third_shot = self.next_frame.next_frame.shot1
-                    if third_shot:
-                        frame_score += third_shot
-                        self._scoring_complete = True
-                else:
-                    frame_score += self.next_frame.score
-            elif self.spare:
-                frame_score += PINS_PER_LANE + self.next_frame.shot1
+                frame_score = self.shot1 + self.shot2 + self.shot3
             else:
-                frame_score = self.pin_total
+                if self.shot1_strike:
+                    if self.next_frame.shot1_strike and self.index == (LAST_FRAME_INDEX - 1):
+                        # second-to-last frame's strike
+                        frame_score = self.shot1 + self.next_frame.shot1 + self.next_frame.shot2
+                    elif self.next_frame.shot1_strike:
+                        frame_score = self.shot1 + self.next_frame.shot1 + self.next_frame.next_frame.shot1
+                    else:
+                        frame_score = self.shot1 + self.next_frame.shot1 + self.next_frame.shot2
+                elif self.spare:
+                    frame_score = self.shot1 + self.shot2 + self.next_frame.shot1
+                else:
+                    frame_score = self.shot1 + self.shot2
             
             self._score = frame_score
             return frame_score
@@ -196,23 +196,25 @@ class FrameSet:
         def shot1(self):
             return self._shot1
 
+        # state changes in the frame is accounted for in the shot.setter methods
         @shot1.setter
         def shot1(self, pins):
             if self._done:
                 raise ValueError("Frame is somehow already finished before the 1st shot: " + str(self))
             elif pins > PINS_PER_LANE or pins < 0:
-                raise ValueError("Invalid number of pins after shot 2 for " + str(self))
+                raise ValueError("Invalid number of pins for shot 1. " + str(self))
             
             self._shot1 = pins
-            self._pin_total += pins
+            self._pin_total = pins
+            
             if pins == PINS_PER_LANE:
-                self.strike = True
-                self._done == True
+                self.shot1_strike = True
                 if self.index == LAST_FRAME_INDEX:
                     # the last frame resets the pin count after a strike on shot1
                     self._pins_remaining = PINS_PER_LANE
                 else:
                     self._pins_remaining = PINS_PER_LANE - pins
+                    self._done = True
             else:
                 self._pins_remaining = PINS_PER_LANE - pins
         
@@ -224,42 +226,54 @@ class FrameSet:
         def shot2(self, pins):
             if self.done:
                 raise ValueError("Cannot set a value for shot2, frame is finished.\n" + str(self))
-            elif (self._shot1 + pins) > PINS_PER_LANE or (self._shot1 + pins) < 0:
-                raise ValueError("Invalid number of pins after shot 2 for " + str(self))
+            
+            pin_count_error = ValueError("Invalid number of pins after shot 2 for " + str(self))
             
             self._shot2 = pins
             self._pin_total += pins
 
-            if (self._shot1 + self._shot2) == PINS_PER_LANE:
-                self.spare = True 
-                # only the last frame has a third shot when all pins are knocked
-                if self.index != LAST_FRAME_INDEX:
-                    self._done = True
-                    self._pins_remaining = 0
-                else:
+            if self.index == LAST_FRAME_INDEX: # state changes if it is the last frame
+                if pins == PINS_PER_LANE: #strike
+                    self.shot2_strike = True
                     self._pins_remaining = PINS_PER_LANE
-            else:
-                self._pins_remaining = self.PINS_PER_LANE - pins
+                elif self.pin_total == PINS_PER_LANE: # spare
+                    self.spare = True
+                    self._pins_remaining = PINS_PER_LANE
+                elif self.pin_total < PINS_PER_LANE: # neither strike or spare
+                    self._pins_remaining = PINS_PER_LANE - self.pin_total
+                    self._done = True
+                else:
+                    raise pin_count_error
+            else: 
+                # state change logic for all frames except the last frame
+                self._done = True
+                self._pins_remaining = PINS_PER_LANE - self.pin_total
+                if self.pin_total == PINS_PER_LANE: # spare
+                    self.spare = True
+                if self.pin_total > PINS_PER_LANE or self.pin_total < 0: # neither strike or spare
+                    raise pin_count_error
 
         @property
-        def shot3(self, pins):
+        def shot3(self):
             return self._shot3
 
         @shot3.setter
         def shot3(self, pins):
             if self.index != LAST_FRAME_INDEX:
                 raise IndexError(f"Frame has only two shots\n" + str(self))
-            elif self.frame_complete:
+            elif self.done:
                 raise ValueError("Third shot is not allowed without a strike or spare\n" + str(self))
             elif pins > PINS_PER_LANE or pins < 0:
                 raise ValueError("Invalid number of pins for " + str(self))
             else:
-                _shot3 = pins
-                self.done = True
-                self._pins_remaining = self.PINS_PER_LANE - pins
+                self._shot3 = pins
+                self._done = True
+                self._pins_remaining = PINS_PER_LANE - pins
+                if pins == PINS_PER_LANE:
+                    self.shot3_strike = True
         
         def __str__(self):
-            return f"Frame{self.index}(shot1={self.shot1}, shot2={self.shot2}, scoring_complete={self._scoring_complete}, score={self.score})"
+            return f"Frame{self.index}(shot1={self.shot1}, shot2={self.shot2}, shot3={self.shot3}, scoring_complete={self._scoring_complete}, score={self.score})"
 
 class BowlingGame:
     def __init__(self, bowlers, autoplay = False):
@@ -275,12 +289,12 @@ class BowlingGame:
         print('Starting game...')
         print('On your turn, roll (enter a number from 0 to 10) to knock down pins') 
 
-        while False in [p.done_bowling for p in self.bowlers]:
-            for p in self.bowlers:
-                p.bowl_frame()
+        while False in [b.done_bowling for b in self.bowlers]:
+            for b in self.bowlers:
+                b.bowl_frame(self.autoplay)
         
-        print('-----------------------------------------------------')
         print('Final Scores:')
-        for p in self.bowlers:
-            print(f"{p.name}: {str(p.frame_set)}")
-            print('-----------------------------------------------------')
+        for b in self.bowlers:
+            print(f"Player: {b.name}")
+            print(str(b.frame_set), '\n')
+    

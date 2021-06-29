@@ -2,37 +2,34 @@
 import click
 from pybowl import BowlingGame, Bowler
 
-def start_bowling(bowlers):
-    # game = BowlingGame(players)
-    game = BowlingGame(bowlers, autoplay=True)
-    game.start()
+def start_bowling(bowlers, autoplay):
+    BowlingGame(bowlers, autoplay).start()
 
-@click.command('Bowling Game')
-@click.option('--names', prompt='Enter the name of each player separated by a comma (max 4)', help='Enter the name of each player separated by a comma. Example: {__file__} Larry, Bonnie, Phillip')
-@click.option('--autoplay', help='Plays the game automatically for you.')
-def get_players(names, autoplay):
-    print(autoplay)
-    if len(names) > 100:
+@click.command()
+@click.option('--player_names', required=True, prompt='Enter the name of each player separated by a comma (max 4)', help=f'Enter the name of each player separated by a comma. Example: Larry, Bonnie, Phillip')
+@click.option('-ap', '--autoplay', help='Plays the game automatically for you.', is_flag=True)
+def get_players(player_names, autoplay):
+    if len(player_names) > 100:
         print('Too many characters input (max: 100). Exiting...')
         exit()
     
-    names = [n.strip() for n in names.split(',')]
-    if len(names) > 4:
+    player_names = [n.strip() for n in player_names.split(',')]
+    if len(player_names) > 4:
         print('Only 4 players allowed. Exiting...')
         exit()
-    if len(names) == 0:
+    if len(player_names) == 0:
         print('No players. Exiting...')
         exit()
 
-    print('Players entered: ', ', '.join(names))
+    print('Players entered: ', ', '.join(player_names))
 
     bowlers = []
     id = 0
-    for name in names:
+    for name in player_names:
         bowlers.append(Bowler(name, id))
         id += 1
 
-    start_bowling(bowlers)
+    start_bowling(bowlers, autoplay)
 
 if __name__ == '__main__':
     get_players()
