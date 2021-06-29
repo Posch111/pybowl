@@ -111,7 +111,7 @@ class FrameSet:
             frame.next_frame = self.frames[frame.index+1]
     
     def __str__(self):
-        row_format ="|{:>4}" * (len(self.frames) + 1)
+        row_format ="|{:^4}" * (len(self.frames) + 1)
         s = row_format.format("Frame:", *[f.index for f in self.frames])
         s += '\n'
         s += row_format.format("Score:", *[f.score for f in self.frames])
